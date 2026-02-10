@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>律师工时记录系统 - 多人审核+Excel导出版</title>
+  <!-- 引入Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入Font Awesome图标 -->
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <!-- 引入SheetJS (XLSX.js) 实现Excel导出 -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- 自定义Tailwind配置 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#165DFF',
+            success: '#00B42A',
+            warning: '#FF7D00',
+            danger: '#F53F3F',
+            secondary: '#6B7280',
+            dark: '#1F2937'
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto { content-visibility: auto; }
+      .card-shadow { box-shadow: 0 2px 10px rgba(22, 93, 255, 0.08); }
+      .btn-hover { @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5; }
+      .form-card { @apply bg-white rounded-2xl card-shadow p-6 md:p-8 w-full max-w-md; }
+      .status-badge { @apply text-xs px-2 py-0.5 rounded-full font-medium; }
+      .tab-active { @apply bg-primary text-white; }
+      .tab-inactive { @apply text-gray-600 hover:bg-gray-100; }
+      .export-btn { @apply flex items-center gap-1 px-3 py-1.5 bg-success text-white rounded-lg text-sm btn-hover; }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans text-dark">
+
+<!-- 登录注册页 -->
+<div id="authPage" class="min-h-screen flex flex-col items-center justify-center px-4 py-8">
+  <div class="mb-8 text-center">
+    <i class="fa fa-clock-o text-primary text-3xl mb-2"></i>
+    <h1 class="text-[clamp(1.8rem,4vw,2.5rem)] font-bold text-primary">律师工时记录系统</h1>
+    <p class="text-secondary mt-2">多人协作 · 审核留痕 · Excel导出</p>
+  </div>
+
+  <div class="form-card mb-6">
+    <div class="flex border-b border-gray-200 mb-6">
+      <button id="loginTab" class="flex-1 py-2 font-medium text-primary border-b-2 border-primary">
+        <i class="fa fa-sign-in mr-1"></i> 登录
+      </button>
+      <button id="registerTab" class="flex-1 py-2 font-medium text-secondary hover:text-primary">
+        <i class="fa fa-user-plus mr-1"></i> 注册
+      </button>
+    </div>
+
+    <!-- 登录表单 -->
+    <form id="loginForm" class="space-y-4">
+      <div>
+        <label for="loginUsername" class="block text-sm font-medium text-secondary mb-1">用户名 <span class="text-red-500">*</span></label>
+        <input type="text" id="loginUsername" required placeholder="请输入用户名" class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+      </div>
+      <div>
+        <label for="loginPwd" class="block text-sm font-medium text-secondary mb-1">密码 <span class="text-red-500">*</span></label>
+        <input type="password" id="loginPwd" required placeholder="请输入密码" class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+      </div>
+      <button type="submit" class="w-full bg-primary text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 btn-hover">
+        <i class="fa fa-sign-in"></i> 登录
+      </button>
+    </form>
+
+    <!-- 注册表单 -->
+    <form id="registerForm" class="space-y-4 hidden">
+      <div>
+        <label for="regUsername" class="block text-sm font-medium text-secondary mb-1">用户名 <span class="text-red-500">*</span></label>
+        <input type="text" id="regUsername" required placeholder="设置用户名（如：张律师）" class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+        <p class="text-xs text-secondary mt-1">用户名唯一，不可修改</p>
+      </div>
+      <div>
+        <label for="regRole" class="block text-sm font-medium text-secondary mb-1">用户角色 <span class="text-red-500">*</span></label>
+        <select id="regRole" required class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+          <option value="lawyer">普通律师（录入工时）</option>
+          <option value="auditor">审核员（主管/合伙人，审批工时）</option>
+        </select>
+      </div>
+      <div>
+        <label for="regPwd" class="block text-sm font-medium text-secondary mb-1">密码（≥6位）<span class="text-red-500">*</span></label>
+        <input type="password" id="regPwd" required minlength="6" placeholder="设置密码" class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+      </div>
+      <div>
+        <label for="regPwdConfirm" class="block text-sm font-medium text-secondary mb-1">确认密码 <span class="text-red-500">*</span></label>
+        <input type="password" id="regPwdConfirm" required placeholder="再次输入密码" class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+      </div>
+      <button type="submit" class="w-full bg-primary text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 btn-hover">
+        <i class="fa fa-user-plus"></i> 立即注册
+      </button>
+    </form>
+  </div>
+  <p class="text-xs text-secondary">© 2026 律所工时管理系统 | 本地安全存储 · 数据独立隔离</p>
+</div>
+
+<!-- 主应用（登录后） -->
+<div id="mainApp" class="hidden">
+  <!-- 顶部导航 -->
+  <header class="bg-white shadow-sm sticky top-0 z-10">
+    <div class="container mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+      <div class="flex items-center gap-2">
+        <i class="fa fa-clock-o text-primary text-2xl"></i>
+        <h1 class="text-xl font-bold text-primary">工时管理系统</h1>
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="text-sm px-3 py-1 bg-primary/10 rounded-lg">
+          用户：<span id="currentUser" class="font-medium"></span> 
+          <span id="currentUserRole" class="text-xs text-primary px-1.5 py-0.5 rounded bg-primary/20"></span>
+        </div>
+        <button id="logoutBtn" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm flex items-center gap-1 btn-hover">
+          <i class="fa fa-sign-out"></i> 退出
+        </button>
+      </div>
+    </div>
+    <!-- 功能tab -->
+    <div class="bg-white border-t border-gray-100">
+      <div class="container mx-auto px-4 flex gap-1 overflow-x-auto py-2">
+        <button id="tabMy" class="px-4 py-1.5 text-sm font-medium rounded-md tab-active">我的工时</button>
+        <button id="tabReview" class="px-4 py-1.5 text-sm font-medium rounded-md tab-inactive hidden">审核中心</button>
+        <button id="tabStats" class="px-4 py-1.5 text-sm font-medium rounded-md tab-inactive">工时统计</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container mx-auto px-4 py-6">
+    <!-- 1. 我的工时页面（默认显示） -->
+    <div id="myTimePage" class="block">
+      <!-- 工时录入表单 -->
+      <section class="bg-white rounded-xl p-5 card-shadow mb-6">
+        <h2 class="text-lg md:text-xl font-semibold mb-4 flex items-center gap-2">
+          <i class="fa fa-plus-circle text-primary"></i>新增工时记录
+        </h2>
+        <form id="timeRecordForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="md:col-span-2">
+            <label for="caseName" class="block text-sm font-medium text-secondary mb-1">案件名称 <span class="text-red-500">*</span></label>
+            <input 
+              type="text" 
+              id="caseName" 
+              name="caseName" 
+              required
+              placeholder="请输入案件名称（如：XX公司与XX买卖合同纠纷）"
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+            >
+          </div>
+          <div class="md:col-span-2">
+            <label for="workContent" class="block text-sm font-medium text-secondary mb-1">工作内容 <span class="text-red-500">*</span></label>
+            <textarea 
+              id="workContent" 
+              name="workContent" 
+              required
+              rows="2"
+              placeholder="请输入具体工作内容（如：起草起诉状、与当事人沟通案件细节）"
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all resize-none"
+            ></textarea>
+          </div>
+          <div>
+            <label for="startTime" class="block text-sm font-medium text-secondary mb-1">开始时间 <span class="text-red-500">*</span></label>
+            <input 
+              type="datetime-local" 
+              id="startTime" 
+              name="startTime" 
+              required
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+            >
+          </div>
+          <div>
+            <label for="endTime" class="block text-sm font-medium text-secondary mb-1">结束时间 <span class="text-red-500">*</span></label>
+            <input 
+              type="datetime-local" 
+              id="endTime" 
+              name="endTime" 
+              required
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+            >
+          </div>
+          <div class="md:col-span-2 flex gap-3">
+            <button 
+              type="submit" 
+              class="flex-1 bg-primary text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 btn-hover"
+            >
+              <i class="fa fa-save"></i> 保存记录（待审核）
+            </button>
+            <button 
+              type="reset" 
+              class="px-4 py-2 border border-gray-200 rounded-lg flex items-center justify-center gap-2 btn-hover"
+            >
+              <i class="fa fa-refresh"></i> 重置
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- 状态筛选 + 导出按钮 -->
+      <section class="mb-6 flex flex-wrap justify-between items-center gap-3">
+        <div class="flex flex-wrap gap-3">
+          <button id="filterAll" class="px-4 py-1.5 bg-primary text-white rounded-lg text-sm btn-hover">全部记录</button>
+          <button id="filterPending" class="px-4 py-1.5 bg-warning/10 text-warning rounded-lg text-sm btn-hover">待审核</button>
+          <button id="filterPassed" class="px-4 py-1.5 bg-success/10 text-success rounded-lg text-sm btn-hover">已通过</button>
+          <button id="filterRejected" class="px-4 py-1.5 bg-danger/10 text-danger rounded-lg text-sm btn-hover">已驳回</button>
+        </div>
+        <!-- 新增：我的工时导出按钮 -->
+        <button id="exportMyTime" class="export-btn">
+          <i class="fa fa-download"></i> 导出Excel
+        </button>
+      </section>
+
+      <!-- 我的工时记录列表 -->
+      <section class="bg-white rounded-xl p-5 card-shadow">
+        <h2 class="text-lg md:text-xl font-semibold mb-4 flex items-center justify-between">
+          <span class="flex items-center gap-2"><i class="fa fa-list-alt text-primary"></i>我的工时记录</span>
+          <span id="myRecordCount" class="text-sm text-secondary">共 0 条记录</span>
+        </h2>
+        <div id="myEmptyTip" class="py-12 flex flex-col items-center justify-center text-secondary">
+          <i class="fa fa-file-text-o text-4xl mb-3"></i>
+          <p>暂无工时记录，快来添加第一条记录吧～</p>
+        </div>
+        <div id="myRecordList" class="space-y-3 hidden">
+          <!-- 记录项由JS动态生成 -->
+        </div>
+      </section>
+    </div>
+
+    <!-- 2. 审核中心页面（仅审核员可见） -->
+    <div id="reviewPage" class="hidden">
+      <!-- 审核筛选 + 导出按钮 -->
+      <section class="mb-6 flex flex-wrap justify-between items-center gap-3">
+        <div class="flex flex-wrap gap-3">
+          <button id="reviewAll" class="px-4 py-1.5 bg-primary text-white rounded-lg text-sm btn-hover">全部审核记录</button>
+          <button id="reviewPending" class="px-4 py-1.5 bg-warning/10 text-warning rounded-lg text-sm btn-hover">待我审核</button>
+          <button id="reviewCompleted" class="px-4 py-1.5 bg-primary/10 text-primary rounded-lg text-sm btn-hover">我已审核</button>
+        </div>
+        <!-- 新增：审核记录导出按钮 -->
+        <button id="exportReview" class="export-btn">
+          <i class="fa fa-download"></i> 导出Excel
+        </button>
+      </section>
+
+      <!-- 审核记录列表 -->
+      <section class="bg-white rounded-xl p-5 card-shadow">
+        <h2 class="text-lg md:text-xl font-semibold mb-4 flex items-center justify-between">
+          <span class="flex items-center gap-2"><i class="fa fa-gavel text-primary"></i>工时审核中心</span>
+          <span id="reviewRecordCount" class="text-sm text-secondary">共 0 条记录</span>
+        </h2>
+        <div id="reviewEmptyTip" class="py-12 flex flex-col items-center justify-center text-secondary">
+          <i class="fa fa-gavel text-4xl mb-3"></i>
+          <p>暂无需要审核的工时记录～</p>
+        </div>
+        <div id="reviewRecordList" class="space-y-3 hidden">
+          <!-- 审核记录由JS动态生成 -->
+        </div>
+      </section>
+    </div>
+
+    <!-- 3. 工时统计页面 -->
+    <div id="statsPage" class="hidden">
+      <section class="bg-white rounded-xl p-5 card-shadow mb-6">
+        <h2 class="text-lg md:text-xl font-semibold mb-4 flex items-center justify-between">
+          <i class="fa fa-bar-chart text-primary"></i>工时统计总结
+          <!-- 新增：统计数据导出按钮 -->
+          <button id="exportStats" class="export-btn">
+            <i class="fa fa-download"></i> 导出Excel
+          </button>
+        </h2>
+        <!-- 时间筛选区域 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+          <div>
+            <label for="filterStartDate" class="block text-sm font-medium text-secondary mb-1">筛选起始日期</label>
+            <input type="date" id="filterStartDate" class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
+          </div>
+          <div>
+            <label for="filterEndDate" class="block text-sm font-medium text-secondary mb-1">筛选结束日期</label>
+            <input type="date" id="filterEndDate" class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
+          </div>
+          <div class="flex items-end">
+            <button type="button" id="filterDateBtn" class="w-full bg-primary text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 btn-hover">
+              <i class="fa fa-search"></i> 筛选统计
+            </button>
+          </div>
+        </div>
+        <!-- 统计概览 -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+          <div class="border border-gray-100 rounded-lg p-3 bg-primary/5">
+            <p class="text-sm text-secondary mb-1">总工时</p>
+            <p class="text-xl font-bold text-primary" id="statsTotalHours">0小时0分钟</p>
+          </div>
+          <div class="border border-gray-100 rounded-lg p-3 bg-warning/5">
+            <p class="text-sm text-secondary mb-1">待审核工时</p>
+            <p class="text-xl font-bold text-warning" id="statsPendingHours">0小时0分钟</p>
+          </div>
+          <div class="border border-gray-100 rounded-lg p-3 bg-success/5">
+            <p class="text-sm text-secondary mb-1">已通过工时</p>
+            <p class="text-xl font-bold text-success" id="statsPassedHours">0小时0分钟</p>
+          </div>
+          <div class="border border-gray-100 rounded-lg p-3 bg-danger/5">
+            <p class="text-sm text-secondary mb-1">已驳回工时</p>
+            <p class="text-xl font-bold text-danger" id="statsRejectedHours">0小时0分钟</p>
+          </div>
+        </div>
+        <!-- 统计结果展示 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- 全部案件工时统计 -->
+          <div class="border border-gray-100 rounded-lg p-4">
+            <h3 class="font-medium text-primary mb-3">全部案件工时汇总</h3>
+            <div id="caseTotalStats" class="space-y-2 max-h-64 overflow-y-auto">
+              <p class="text-secondary text-sm">暂无数据，添加记录后自动统计</p>
+            </div>
+          </div>
+          <!-- 筛选时段统计 -->
+          <div class="border border-gray-100 rounded-lg p-4">
+            <h3 class="font-medium text-primary mb-3">指定时段工时统计</h3>
+            <div class="mb-3">
+              <p class="text-sm">时段总工时：<span id="filterTotalHours" class="font-bold text-primary">0小时0分钟</span></p>
+            </div>
+            <div id="filterCaseStats" class="space-y-2 max-h-52 overflow-y-auto">
+              <p class="text-secondary text-sm">请选择日期并点击筛选</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- 审核弹窗（隐藏） -->
+  <div id="reviewModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+      <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+        <i class="fa fa-gavel text-primary"></i> 工时审核
+      </h3>
+      <input type="hidden" id="reviewRecordId">
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-secondary mb-2">审核操作</label>
+        <div class="flex gap-3">
+          <button id="btnPass" class="flex-1 bg-success text-white px-4 py-2 rounded-lg btn-hover">通过</button>
+          <button id="btnReject" class="flex-1 bg-danger text-white px-4 py-2 rounded-lg btn-hover">驳回</button>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label for="reviewComment" class="block text-sm font-medium text-secondary mb-1">审核意见（驳回必填）</label>
+        <textarea id="reviewComment" rows="2" placeholder="请输入审核意见（如：工时合理，同意通过 / 工时与实际不符，驳回）" class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"></textarea>
+      </div>
+      <button id="closeReviewModal" class="w-full border border-gray-200 text-secondary px-4 py-2 rounded-lg btn-hover">取消</button>
+    </div>
+  </div>
+
+  <footer class="mt-10 py-4 bg-white shadow-inner text-center text-secondary text-sm">
+    <p>© 2026 律所工时管理系统 | 多人协作 · 审核留痕 · Excel导出 · 本地安全存储</p>
+  </footer>
+</div>
+
+<script>
+  // 全局核心变量
+  let editId = null;          // 编辑状态记录ID
+  let currentUser = null;     // 当前登录用户
+  let currentUserRole = null; // 当前用户角色（lawyer/auditor）
+  let currentMyFilter = 'all';// 我的工时当前筛选状态
+  let currentReviewFilter = 'all';// 审核中心当前筛选状态
+  let currentStatsFilter = { start: '', end: '' };// 统计页面当前时间筛选
+  // 本地存储Key
+  const STORAGE_KEY_USERS = 'lawyerTimeRecordUsers'; // 所有用户
+  const STORAGE_KEY_LOGIN = 'lawyerTimeRecordLogin'; // 登录态
+  const STORAGE_KEY_RECORDS = 'lawyerTimeRecordsAll';// 所有工时记录（统一存储，区分用户）
+
+  // 页面加载完成后初始化
+  document.addEventListener('DOMContentLoaded', function() {
+    initAuthEvents();       // 初始化登录注册事件
+    checkLoginStatus();     // 检查登录态，自动登录
+    initAppEvents();        // 初始化主应用事件
+    initReviewModalEvents();// 初始化审核弹窗事件
+    initExportEvents();     // 新增：初始化Excel导出事件
+  });
+
+  // ====================== 登录/注册核心功能 ======================
+  function initAuthEvents() {
+    // 登录/注册标签切换
+    document.getElementById('loginTab').addEventListener('click', () => switchAuthTab('login'));
+    document.getElementById('registerTab').addEventListener('click', () => switchAuthTab('register'));
+
+    // 登录表单提交
+    document.getElementById('loginForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const username = document.getElementById('loginUsername').value.trim();
+      const pwd = document.getElementById('loginPwd').value.trim();
+      handleLogin(username, pwd);
+    });
+
+    // 注册表单提交
+    document.getElementById('registerForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const username = document.getElementById('regUsername').value.trim();
+      const role = document.getElementById('regRole').value;
+      const pwd = document.getElementById('regPwd').value.trim();
+      const pwdConfirm = document.getElementById('regPwdConfirm').value.trim();
+      handleRegister(username, role, pwd, pwdConfirm);
+    });
+  }
+
+  function switchAuthTab(type) {
+    const loginTab = document.getElementById('loginTab');
+    const registerTab = document.getElementById('registerTab');
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+
+    if (type === 'login') {
+      loginTab.classList.add('text-primary', 'border-b-2', 'border-primary');
+      loginTab.classList.remove('text-secondary');
+      registerTab.classList.remove('text-primary', 'border-b-2', 'border-primary');
+      registerTab.classList.add('text-secondary');
+      loginForm.classList.remove('hidden');
+      registerForm.classList.add('hidden');
+    } else {
+      registerTab.classList.add('text-primary', 'border-b-2', 'border-primary');
+      registerTab.classList.remove('text-secondary');
+      loginTab.classList.remove('text-primary', 'border-b-2', 'border-primary');
+      loginTab.classList.add('text-secondary');
+      registerForm.classList.remove('hidden');
+      loginForm.classList.add('hidden');
+    }
+  }
+
+  function handleRegister(username, role, pwd, pwdConfirm) {
+    if (!username) { alert('请输入用户名！'); return; }
+    if (pwd.length < 6) { alert('密码长度不能少于6位！'); return; }
+    if (pwd !== pwdConfirm) { alert('两次输入的密码不一致！'); return; }
+
+    let users = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS)) || [];
+    const userExists = users.some(user => user.username === username);
+    if (userExists) { alert('该用户名已存在，请更换！'); return; }
+
+    users.push({
+      username,
+      role,
+      pwd: simpleEncrypt(pwd),
+      createTime: new Date().toISOString()
+    });
+    localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(users));
+
+    alert('注册成功！请登录');
+    switchAuthTab('login');
+    document.getElementById('loginUsername').value = username;
+    document.getElementById('loginPwd').value = '';
+  }
+
+  function handleLogin(username, pwd) {
+    if (!username || !pwd) { alert('请输入用户名和密码！'); return; }
+
+    let users = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS)) || [];
+    const user = users.find(item => 
+      item.username === username && simpleDecrypt(item.pwd) === pwd
+    );
+    if (!user) { alert('用户名或密码错误！'); return; }
+
+    currentUser = username;
+    currentUserRole = user.role;
+    localStorage.setItem(STORAGE_KEY_LOGIN, JSON.stringify({
+      username,
+      role: user.role,
+      loginTime: new Date().toISOString()
+    }));
+
+    enterMainApp();
+  }
+
+  function checkLoginStatus() {
+    const loginInfo = JSON.parse(localStorage.getItem(STORAGE_KEY_LOGIN));
+    if (loginInfo && loginInfo.username && loginInfo.role) {
+      currentUser = loginInfo.username;
+      currentUserRole = loginInfo.role;
+      enterMainApp();
+    }
+  }
+
+  function handleLogout() {
+    if (confirm('确定要退出登录吗？')) {
+      localStorage.removeItem(STORAGE_KEY_LOGIN);
+      currentUser = null;
+      currentUserRole = null;
+      editId = null;
+      document.getElementById('authPage').classList.remove('hidden');
+      document.getElementById('mainApp').classList.add('hidden');
+      document.getElementById('loginForm').reset();
+      document.getElementById('registerForm').reset();
+      switchAuthTab('login');
+    }
+  }
+
+  function enterMainApp() {
+    document.getElementById('currentUser').textContent = currentUser;
+    document.getElementById('currentUserRole').textContent = 
+      currentUserRole === 'lawyer' ? '普通律师' : '审核员';
+    
+    if (currentUserRole === 'auditor') {
+      document.getElementById('tabReview').classList.remove('hidden');
+    }
+
+    document.getElementById('authPage').classList.add('hidden');
+    document.getElementById('mainApp').classList.remove('hidden');
+    
+    initDefaultTime();
+    renderMyTimeList();
+    renderReviewList();
+    renderStats();
+  }
+
+  // ====================== 工具函数 ======================
+  function simpleEncrypt(str) {
+    return btoa(unescape(encodeURIComponent(str)));
+  }
+
+  function simpleDecrypt(str) {
+    return decodeURIComponent(escape(atob(str)));
+  }
+
+  function generateUniqueId() {
+    return Date.now() + '-' + Math.floor(Math.random() * 10000);
+  }
+
+  function calculateDuration(start, end) {
+    const startMs = new Date(start).getTime();
+    const endMs = new Date(end).getTime();
+    const diffMs = endMs - startMs;
+    const hours = Math.floor(diffMs / (60 * 60 * 1000));
+    const minutes = Math.floor((diffMs % (60 * 60 * 1000)) / (60 * 1000));
+    return `${hours}小时${minutes}分钟`;
+  }
+
+  function calcTotalMinutes(start, end) {
+    const startMs = new Date(start).getTime();
+    const endMs = new Date(end).getTime();
+    const diffMs = endMs - startMs;
+    return Math.floor(diffMs / (60 * 1000));
+  }
+
+  function formatDisplayTime(timeStr) {
+    if (!timeStr) return '无';
+    const date = new Date(timeStr);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hour = String(date.getHours()).padStart(2, '0');
+    const minute = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hour}:${minute}`;
+  }
+
+  function initDefaultTime() {
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    const formatTime = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hour = String(date.getHours()).padStart(2, '0');
+      const minute = String(date.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hour}:${minute}`;
+    };
+    document.getElementById('startTime').value = formatTime(oneHourAgo);
+    document.getElementById('endTime').value = formatTime(now);
+  }
+
+  // 新增：格式化审核状态为中文
+  function formatStatus(status) {
+    const statusMap = {
+      pending: '待审核',
+      passed: '已通过',
+      rejected: '已驳回'
+    };
+    return statusMap[status] || '未知状态';
+  }
+
+  // 新增：获取当前日期（YYYYMMDD），用于文件名
+  function getCurrentDateStr() {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}${month}${day}`;
+  }
+
+  // ====================== 主应用核心功能 ======================
+  function initAppEvents() {
+    document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+
+    // 功能tab切换
+    document.getElementById('tabMy').addEventListener('click', () => switchAppTab('my'));
+    document.getElementById('tabReview').addEventListener('click', () => switchAppTab('review'));
+    document.getElementById('tabStats').addEventListener('click', () => switchAppTab('stats'));
+
+    // 工时表单提交
+    document.getElementById('timeRecordForm').addEventListener('submit', handleFormSubmit);
+
+    // 我的工时筛选事件
+    document.getElementById('filterAll').addEventListener('click', () => filterMyTime('all'));
+    document.getElementById('filterPending').addEventListener('click', () => filterMyTime('pending'));
+    document.getElementById('filterPassed').addEventListener('click', () => filterMyTime('passed'));
+    document.getElementById('filterRejected').addEventListener('click', () => filterMyTime('rejected'));
+
+    // 审核中心筛选事件
+    document.getElementById('reviewAll').addEventListener('click', () => filterReview('all'));
+    document.getElementById('reviewPending').addEventListener('click', () => filterReview('pending'));
+    document.getElementById('reviewCompleted').addEventListener('click', () => filterReview('completed'));
+
+    // 统计筛选事件
+    document.getElementById('filterDateBtn').addEventListener('click', handleDateFilterStats);
+  }
+
+  function switchAppTab(type) {
+    const tabs = [document.getElementById('tabMy'), document.getElementById('tabReview'), document.getElementById('tabStats')];
+    tabs.forEach(tab => {
+      tab.classList.remove('tab-active');
+      tab.classList.add('tab-inactive');
+    });
+
+    document.getElementById('myTimePage').classList.add('hidden');
+    document.getElementById('reviewPage').classList.add('hidden');
+    document.getElementById('statsPage').classList.add('hidden');
+
+    if (type === 'my') {
+      document.getElementById('tabMy').classList.add('tab-active');
+      document.getElementById('tabMy').classList.remove('tab-inactive');
+      document.getElementById('myTimePage').classList.remove('hidden');
+    } else if (type === 'review' && currentUserRole === 'auditor') {
+      document.getElementById('tabReview').classList.add('tab-active');
+      document.getElementById('tabReview').classList.remove('tab-inactive');
+      document.getElementById('reviewPage').classList.remove('hidden');
+      renderReviewList();
+    } else if (type === 'stats') {
+      document.getElementById('tabStats').classList.add('tab-active');
+      document.getElementById('tabStats').classList.remove('tab-inactive');
+      document.getElementById('statsPage').classList.remove('hidden');
+      renderStats();
+    }
+  }
+
+  function handleFormSubmit(e) {
+    e.preventDefault();
+    const caseName = document.getElementById('caseName').value.trim();
+    const workContent = document.getElementById('workContent').value.trim();
+    const startTime = document.getElementById('startTime').value;
+    const endTime = document.getElementById('endTime').value;
+
+    if (new Date(startTime) >= new Date(endTime)) {
+      alert('结束时间必须晚于开始时间，请重新选择！');
+      return;
+    }
+
+    const record = {
+      userId: currentUser,
+      caseName,
+      workContent,
+      startTime,
+      endTime,
+      duration: calculateDuration(startTime, endTime),
+      totalMinutes: calcTotalMinutes(startTime, endTime),
+      createTime: new Date().toISOString(),
+      status: 'pending',
+      reviewInfo: {
+        reviewer: '',
+        reviewTime: '',
+        comment: ''
+      }
+    };
+
+    let allRecords = JSON.parse(localStorage.getItem(STORAGE_KEY_RECORDS)) || [];
+
+    if (editId) {
+      const editRecord = allRecords.find(item => item.id === editId);
+      if (!editRecord || editRecord.userId !== currentUser || editRecord.status !== 'pending') {
+        alert('无法编辑此记录（仅可编辑自己的待审核记录）！');
+        return;
+      }
+      allRecords = allRecords.map(item => item.id === editId ? { ...item, ...record } : item);
+      editId = null;
+      alert('记录编辑成功！');
+    } else {
+      allRecords.unshift({ id: generateUniqueId(), ...record });
+      alert('记录添加成功，等待审核！');
+    }
+
+    localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(allRecords));
+    this.reset();
+    initDefaultTime();
+    renderMyTimeList();
+    renderReviewList();
+    renderStats();
+  }
+
+  function filterMyTime(type) {
+    currentMyFilter = type;
+    const filters = [document.getElementById('filterAll'), document.getElementById('filterPending'), document.getElementById('filterPassed'), document.getElementById('filterRejected')];
+    filters.forEach(btn => {
+      btn.classList.remove('bg-primary', 'text-white');
+      btn.classList.add('bg-gray-100', 'text-gray-700');
+      if (btn.id === `filter${type.charAt(0).toUpperCase() + type.slice(1)}`) {
+        btn.classList.remove('bg-gray-100', 'text-gray-700');
+        if (type === 'all') btn.classList.add('bg-primary', 'text-white');
+        if (type === 'pending') btn.classList.add('bg-warning/10', 'text-warning');
+        if (type === 'passed') btn.classList.add('bg-success/10', 'text-success');
+        if (type === 'rejected') btn.classList.add('bg-danger/10', 'text-danger');
+      }
+    });
+    renderMyTimeList(type);
+  }
+
+  function renderMyTimeList(filter = 'all') {
+    const allRecords = JSON.parse(localStorage.getItem(STORAGE_KEY_RECORDS)) || [];
+    let myRecords = allRecords.filter(item => item.userId === currentUser);
+    
+    if (filter === 'pending') myRecords = myRecords.filter(item => item.status === 'pending');
+    if (filter === 'passed') myRecords = myRecords.filter(item => item.status === 'passed');
+    if (filter === 'rejected') myRecords = myRecords.filter(item => item.status === 'rejected');
+
+    const listEl = document.getElementById('myRecordList');
+    const emptyTipEl = document.getElementById('myEmptyTip');
+    const countEl = document.getElementById('myRecordCount');
+
+    countEl.textContent = `共 ${myRecords.length} 条记录`;
+
+    if (myRecords.length === 0) {
+      listEl.classList.add('hidden');
+      emptyTipEl.classList.remove('hidden');
+      return;
+    }
+
+    listEl.classList.remove('hidden');
+    emptyTipEl.classList.add('hidden');
+    listEl.innerHTML = '';
+
+    myRecords.forEach(record => {
+      let statusBadge = '';
+      if (record.status === 'pending') {
+        statusBadge = '<span class="status-badge bg-warning/10 text-warning">待审核</span>';
+      } else if (record.status === 'passed') {
+        statusBadge = '<span class="status-badge bg-success/10 text-success">已通过</span>';
+      } else {
+        statusBadge = '<span class="status-badge bg-danger/10 text-danger">已驳回</span>';
+      }
+
+      let reviewComment = '';
+      if (record.status !== 'pending' && record.reviewInfo.comment) {
+        reviewComment = `
+          <div class="mt-2 text-xs p-2 bg-gray-50 rounded border border-gray-100">
+            <p class="text-secondary">审核意见：${record.reviewInfo.comment}</p>
+            <p class="text-gray-400 mt-1">审核人：${record.reviewInfo.reviewer} · ${formatDisplayTime(record.reviewInfo.reviewTime)}</p>
+          </div>
+        `;
+      }
+
+      let actionBtns = '';
+      if (record.status === 'pending') {
+        actionBtns = `
+          <button class="edit-btn text-primary hover:text-primary/80 transition-all" data-id="${record.id}">
+            <i class="fa fa-pencil mr-1"></i>编辑
+          </button>
+          <button class="delete-btn text-danger hover:text-danger/80 transition-all" data-id="${record.id}">
+            <i class="fa fa-trash mr-1"></i>删除
+          </button>
+        `;
+      }
+
+      const recordItem = document.createElement('div');
+      recordItem.className = 'border border-gray-100 rounded-lg p-4 hover:border-primary/30 transition-all';
+      recordItem.innerHTML = `
+        <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-2 mb-3">
+          <h3 class="font-semibold text-lg flex items-center gap-2">
+            <span class="text-primary">${record.caseName}</span>
+            <span class="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full">${record.duration}</span>
+            ${statusBadge}
+          </h3>
+          <div class="flex gap-3 text-sm">
+            ${actionBtns}
+          </div>
+        </div>
+        <p class="text-sm text-secondary mb-2"><i class="fa fa-file-text-o mr-1"></i>${record.workContent}</p>
+        <div class="flex flex-wrap gap-4 text-xs text-secondary mb-2">
+          <span><i class="fa fa-clock-o mr-1"></i>开始：${formatDisplayTime(record.startTime)}</span>
+          <span><i class="fa fa-stop mr-1"></i>结束：${formatDisplayTime(record.endTime)}</span>
+          <span><i class="fa fa-calendar-plus-o mr-1"></i>录入：${formatDisplayTime(record.createTime)}</span>
+        </div>
+        ${reviewComment}
+      `;
+      listEl.appendChild(recordItem);
+
+      if (record.status === 'pending') {
+        recordItem.querySelector('.edit-btn')?.addEventListener('click', () => editRecord(record.id));
+        recordItem.querySelector('.delete-btn')?.addEventListener('click', () => deleteRecord(record.id));
+      }
+    });
+  }
+
+  function filterReview(type) {
+    currentReviewFilter = type;
+    const filters = [document.getElementById('reviewAll'), document.getElementById('reviewPending'), document.getElementById('reviewCompleted')];
+    filters.forEach(btn => {
+      btn.classList.remove('bg-primary', 'text-white');
+      btn.classList.add('bg-gray-100', 'text-gray-700');
+      if (btn.id === `review${type.charAt(0).toUpperCase() + type.slice(1)}`) {
+        btn.classList.remove('bg-gray-100', 'text-gray-700');
+        if (type === 'all') btn.classList.add('bg-primary', 'text-white');
+        if (type === 'pending') btn.classList.add('bg-warning/10', 'text-warning');
+        if (type === 'completed') btn.classList.add('bg-primary/10', 'text-primary');
+      }
+    });
+    renderReviewList(type);
+  }
+
+  function renderReviewList(filter = 'all') {
+    if (currentUserRole !== 'auditor') return;
+
+    const allRecords = JSON.parse(localStorage.getItem(STORAGE_KEY_RECORDS)) || [];
+    let reviewRecords = [...allRecords];
+
+    if (filter === 'pending') {
+      reviewRecords = reviewRecords.filter(item => item.status === 'pending');
+    } else if (filter === 'completed') {
+      reviewRecords = reviewRecords.filter(item => item.status !== 'pending');
+    }
+
+    const listEl = document.getElementById('reviewRecordList');
+    const emptyTipEl = document.getElementById('reviewEmptyTip');
+    const countEl = document.getElementById('reviewRecordCount');
+
+    countEl.textContent = `共 ${reviewRecords.length} 条记录`;
+
+    if (reviewRecords.length === 0) {
+      listEl.classList.add('hidden');
+      emptyTipEl.classList.remove('hidden');
+      return;
+    }
+
+    listEl.classList.remove('hidden');
+    emptyTipEl.classList.add('hidden');
+    listEl.innerHTML = '';
+
+    reviewRecords.forEach(record => {
+      let statusBadge = '';
+      if (record.status === 'pending') {
+        statusBadge = '<span class="status-badge bg-warning/10 text-warning">待审核</span>';
+      } else if (record.status === 'passed') {
+        statusBadge = '<span class="status-badge bg-success/10 text-success">已通过</span>';
+      } else {
+        statusBadge = '<span class="status-badge bg-danger/10 text-danger">已驳回</span>';
+      }
+
+      let reviewInfo = '';
+      if (record.status !== 'pending') {
+        reviewInfo = `
+          <div class="mt-2 text-xs p-2 bg-gray-50 rounded border border-gray-100">
+            <p class="text-secondary">审核意见：${record.reviewInfo.comment || '无'}</p>
+            <p class="text-gray-400 mt-1">审核人：${record.reviewInfo.reviewer} · ${formatDisplayTime(record.reviewInfo.reviewTime)}</p>
+          </div>
+        `;
+      }
+
+      let reviewBtn = '';
+      if (record.status === 'pending') {
+        reviewBtn = `
+          <button class="review-btn bg-primary text-white px-3 py-1 rounded-lg text-xs btn-hover" data-id="${record.id}">
+            <i class="fa fa-gavel mr-1"></i>审核
+          </button>
+        `;
+      }
+
+      const recordItem = document.createElement('div');
+      recordItem.className = 'border border-gray-100 rounded-lg p-4 hover:border-primary/30 transition-all';
+      recordItem.innerHTML = `
+        <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-2 mb-3">
+          <div>
+            <h3 class="font-semibold text-lg flex items-center gap-2">
+              <span class="text-primary">${record.caseName}</span>
+              <span class="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full">${record.duration}</span>
+              ${statusBadge}
+            </h3>
+            <p class="text-xs text-secondary mt-1">录入人：${record.userId} · ${formatDisplayTime(record.createTime)}</p>
+          </div>
+          <div>
+            ${reviewBtn}
+          </div>
+        </div>
+        <p class="text-sm text-secondary mb-2"><i class="fa fa-file-text-o mr-1"></i>${record.workContent}</p>
+        <div class="flex flex-wrap gap-4 text-xs text-secondary mb-2">
+          <span><i class="fa fa-clock-o mr-1"></i>开始：${formatDisplayTime(record.startTime)}</span>
+          <span><i class="fa fa-stop mr-1"></i>结束：${formatDisplayTime(record.endTime)}</span>
+        </div>
+        ${reviewInfo}
+      `;
+      listEl.appendChild(recordItem);
+
+      recordItem.querySelector('.review-btn')?.addEventListener('click', () => openReviewModal(record.id));
+    });
+  }
+
+  function initReviewModalEvents() {
+    document.getElementById('closeReviewModal').addEventListener('click', () => {
+      document.getElementById('reviewModal').classList.add('hidden');
+      document.getElementById('reviewComment').value = '';
+    });
+
+    document.getElementById('btnPass').addEventListener('click', () => {
+      const recordId = document.getElementById('reviewRecordId').value;
+      const comment = document.getElementById('reviewComment').value.trim() || '工时合理，同意通过';
+      handleReview(recordId, 'passed', comment);
+    });
+
+    document.getElementById('btnReject').addEventListener('click', () => {
+      const recordId = document.getElementById('reviewRecordId').value;
+      const comment = document.getElementById('reviewComment').value.trim();
+      if (!comment) { alert('驳回需填写审核意见！'); return; }
+      handleReview(recordId, 'rejected', comment);
+    });
+  }
+
+  function openReviewModal(recordId) {
+    document.getElementById('reviewRecordId').value = recordId;
+    document.getElementById('reviewComment').value = '';
+    document.getElementById('reviewModal').classList.remove('hidden');
+  }
+
+  function handleReview(recordId, status, comment) {
+    let allRecords = JSON.parse(localStorage.getItem(STORAGE_KEY_RECORDS)) || [];
+    const recordIndex = allRecords.findIndex(item => item.id === recordId);
+
+    if (recordIndex === -1) { alert('记录不存在！'); return; }
+
+    allRecords[recordIndex] = {
+      ...allRecords[recordIndex],
+      status,
+      reviewInfo: {
+        reviewer: currentUser,
+        reviewTime: new Date().toISOString(),
+        comment
+      }
+    };
+
+    localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(allRecords));
+    document.getElementById('reviewModal').classList.add('hidden');
+    document.getElementById('reviewComment').value = '';
+    alert(`审核${status === 'passed' ? '通过' : '驳回'}成功！`);
+    renderMyTimeList();
+    renderReviewList();
+    renderStats();
+  }
+
+  function editRecord(id) {
+    const allRecords = JSON.parse(localStorage.getItem(STORAGE_KEY_RECORDS)) || [];
+    const record = allRecords.find(item => item.id === id);
+
+    if (!record || record.userId !== currentUser || record.status !== 'pending') {
+      alert('无法编辑此记录（仅可编辑自己的待审核记录）！');
+      return;
+    }
+
+    document.getElementById('caseName').value = record.caseName;
+    document.getElementById('workContent').value = record.workContent;
+    document.getElementById('startTime').value = record.startTime;
+    document.getElementById('endTime').value = record.endTime;
+    editId = id;
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function deleteRecord(id) {
+    const allRecords = JSON.parse(localStorage.getItem(STORAGE_KEY_RECORDS)) || [];
+    const record = allRecords.find(item => item.id === id);
+
+    if (!record || record.userId !== currentUser || record.status !== 'pending') {
+      alert('无法删除此记录（仅可删除自己的待审核记录）！');
+      return;
+    }
+
+    if (!confirm('确定删除这条待审核记录？删除后无法恢复！')) return;
+
+    const newRecords = allRecords.filter(item => item.id !== id);
+    localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(newRecords));
+    renderMyTimeList();
+    renderReviewList();
+    renderStats();
+    alert('记录已删除！');
+  }
+
+  function handleDateFilterStats() {
+    const startDate = document.getElementById('filterStartDate').value;
+    const endDate = document.getElementById('filterEndDate').value;
+    currentStatsFilter = { start: startDate, end: endDate };
+    renderStats(startDate, endDate);
+  }
+
+  function renderStats(filterStart = '', filterEnd = '') {
+    const allRecords = JSON.parse(localStorage.getItem(STORAGE_KEY_RECORDS)) || [];
+    // 按用户角色筛选数据
+    let statsRecords = currentUserRole === 'lawyer' 
+      ? allRecords.filter(item => item.userId === currentUser) 
+      : allRecords;
+
+    // 按时间筛选
+    if (filterStart && filterEnd) {
+      statsRecords = statsRecords.filter(item => {
+        const recordDate = item.startTime.split('T')[0];
+        return recordDate >= filterStart && recordDate <= filterEnd;
+      });
+    }
+
+    // 计算各状态工时
+    const totalMinutes = statsRecords.reduce((sum, item) => sum + item.totalMinutes, 0);
+    const pendingMinutes = statsRecords.filter(item => item.status === 'pending').reduce((sum, item) => sum + item.totalMinutes, 0);
+    const passedMinutes = statsRecords.filter(item => item.status === 'passed').reduce((sum, item) => sum + item.totalMinutes, 0);
+    const rejectedMinutes = statsRecords.filter(item => item.status === 'rejected').reduce((sum, item) => sum + item.totalMinutes, 0);
+
+    // 更新统计概览
+    document.getElementById('statsTotalHours').textContent = minutesToHours(totalMinutes);
+    document.getElementById('statsPendingHours').textContent = minutesToHours(pendingMinutes);
+    document.getElementById('statsPassedHours').textContent = minutesToHours(passedMinutes);
+    document.getElementById('statsRejectedHours').textContent = minutesToHours(rejectedMinutes);
+
+    // 案件工时汇总
+    const caseTotalStats = document.getElementById('caseTotalStats');
+    const filterCaseStats = document.getElementById('filterCaseStats');
+    const filterTotalHours = document.getElementById('filterTotalHours');
+
+    // 全部案件汇总
+    const caseMap = {};
+    statsRecords.forEach(item => {
+      if (!caseMap[item.caseName]) caseMap[item.caseName] = 0;
+      caseMap[item.caseName] += item.totalMinutes;
+    });
+    const caseStats = Object.entries(caseMap).sort((a, b) => b[1] - a[1]);
+
+    if (caseStats.length === 0) {
+      caseTotalStats.innerHTML = '<p class="text-secondary text-sm">暂无数据，添加记录后自动统计</p>';
+    } else {
+      let html = '';
+      caseStats.forEach(([name, minutes]) => {
+        html += `
+          <div class="flex justify-between items-center text-sm">
+            <span class="truncate mr-2" title="${name}">${name}</span>
+            <span class="font-medium">${minutesToHours(minutes)}</span>
+          </div>
+        `;
+      });
+      caseTotalStats.innerHTML = html;
+    }
+
+    // 筛选时段统计
+    filterTotalHours.textContent = minutesToHours(totalMinutes);
+    if (filterStart && filterEnd) {
+      if (statsRecords.length === 0) {
+        filterCaseStats.innerHTML = '<p class="text-secondary text-sm">该时段无工时记录</p>';
+      } else {
+        filterCaseStats.innerHTML = caseTotalStats.innerHTML;
+      }
+    } else {
+      filterCaseStats.innerHTML = '<p class="text-secondary text-sm">请选择日期并点击筛选</p>';
+    }
+  }
+
+  function minutesToHours(minutes) {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${h}小时${m}分钟`;
+  }
+
+  // ====================== 新增：Excel导出核心功能 ======================
+  /**
+   * 初始化导出按钮点击事件
+   */
+  function initExportEvents() {
+    // 我的工时导出
+    document.getElementById('exportMyTime').addEventListener('click', exportMyTimeToExcel);
+    // 审核记录导出（审核员）
+    document.getElementById('exportReview').addEventListener('click', exportReviewToExcel);
+    // 统计数据导出
+    document.getElementById('exportStats').addEventListener('click', exportStatsToExcel);
+  }
+
+  /**
+   * 通用Excel导出函数
+   * @param {Array} data - 导出数据数组
+   * @param {String} sheetName - Excel工作表名称
+   * @param {String} fileName - 导出文件名
+   */
+  function exportToExcel(data, sheetName, fileName) {
+    // 无数据提示
+    if (data.length === 0) {
+      alert('暂无数据可导出！');
+      return;
+    }
+    // 创建工作簿
+    const wb = XLSX.utils.book_new();
+    // 将数据转换为工作表（数组转Excel）
+    const ws = XLSX.utils.json_to_sheet(data);
+    // 将工作表添加到工作簿
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    // 导出Excel文件
+    XLSX.writeFile(wb, fileName);
+  }
+
+  /**
+   * 我的工时导出Excel
+   */
+  function exportMyTimeToExcel() {
+    const allRecords = JSON.parse(localStorage.getItem(STORAGE_KEY_RECORDS)) || [];
+    // 获取当前筛选后的我的工时数据
+    let myRecords = allRecords.filter(item => item.userId === currentUser);
+    if (currentMyFilter === 'pending') myRecords = myRecords.filter(item => item.status === 'pending');
+    if (currentMyFilter === 'passed') myRecords = myRecords.filter(item => item.status === 'passed');
+    if (currentMyFilter === 'rejected') myRecords = myRecords.filter(item => item.status === 'rejected');
+
+    // 格式化导出数据（仅保留需要的字段，重命名列）
+    const exportData = myRecords.map(record => ({
+      '案件名称': record.caseName,
+      '工作内容': record.workContent,
+      '开始时间': formatDisplayTime(record.startTime),
+      '结束时间': formatDisplayTime(record.endTime),
+      '耗时': record.duration,
+      '录入时间': formatDisplayTime(record.createTime),
+      '审核状态': formatStatus(record.status),
+      '审核人': record.reviewInfo.reviewer || '无',
+      '审核时间': formatDisplayTime(record.reviewInfo.reviewTime),
+      '审核意见': record.reviewInfo.comment || '无'
+    }));
+
+    // 生成文件名：我的工时_用户名_日期.xlsx
+    const fileName = `我的工时_${currentUser}_${getCurrentDateStr()}.xlsx`;
+    // 导出
+    exportToExcel(exportData, '我的工时', fileName);
+  }
+
+  /**
+   * 审核记录导出Excel（仅审核员）
+   */
+  function exportReviewToExcel() {
+    if (currentUserRole !== 'auditor') return;
+    const allRecords = JSON.parse(localStorage.getItem(STORAGE_KEY_RECORDS)) || [];
+    // 获取当前筛选后的审核记录数据
+    let reviewRecords = [...allRecords];
+    if (currentReviewFilter === 'pending') reviewRecords = reviewRecords.filter(item => item.status === 'pending');
+    if (currentReviewFilter === 'completed') reviewRecords = reviewRecords.filter(item => item.status !== 'pending');
+
+    // 格式化导出数据（包含录入人，适配审核员视角）
+    const exportData = reviewRecords.map(record => ({
+      '录入人': record.userId,
+      '案件名称': record.caseName,
+      '工作内容': record.workContent,
+      '开始时间': formatDisplayTime(record.startTime),
+      '结束时间': formatDisplayTime(record.endTime),
+      '耗时': record.duration,
+      '录入时间': formatDisplayTime(record.createTime),
+      '审核状态': formatStatus(record.status),
+      '审核人': record.reviewInfo.reviewer || '无',
+      '审核时间': formatDisplayTime(record.reviewInfo.reviewTime),
+      '审核意见': record.reviewInfo.comment || '无'
+    }));
+
+    // 生成文件名：审核记录_审核员名_日期.xlsx
+    const fileName = `审核记录_${currentUser}_${getCurrentDateStr()}.xlsx`;
+    // 导出
+    exportToExcel(exportData, '工时审核记录', fileName);
+  }
+
+  /**
+   * 统计数据导出Excel
+   */
+  function exportStatsToExcel() {
+    const allRecords = JSON.parse(localStorage.getItem(STORAGE_KEY_RECORDS)) || [];
+    // 按角色筛选数据
+    let statsRecords = currentUserRole === 'lawyer' 
+      ? allRecords.filter(item => item.userId === currentUser) 
+      : allRecords;
+    // 按当前时间筛选条件过滤
+    const { start, end } = currentStatsFilter;
+    if (start && end) {
+      statsRecords = statsRecords.filter(item => {
+        const recordDate = item.startTime.split('T')[0];
+        return recordDate >= start && recordDate <= end;
+      });
+    }
+
+    // 格式化导出数据（最完整字段，适配统计复盘）
+    const exportData = statsRecords.map(record => ({
+      '录入人': record.userId,
+      '案件名称': record.caseName,
+      '工作内容': record.workContent,
+      '开始时间': formatDisplayTime(record.startTime),
+      '结束时间': formatDisplayTime(record.endTime),
+      '耗时(小时)': record.duration,
+      '耗时(分钟)': record.totalMinutes,
+      '录入时间': formatDisplayTime(record.createTime),
+      '审核状态': formatStatus(record.status),
+      '审核人': record.reviewInfo.reviewer || '无',
+      '审核时间': formatDisplayTime(record.reviewInfo.reviewTime),
+      '审核意见': record.reviewInfo.comment || '无'
+    }));
+
+    // 生成文件名：工时统计_用户名_日期.xlsx（带时间范围标识）
+    let fileName = `工时统计_${currentUser}_${getCurrentDateStr()}.xlsx`;
+    if (start && end) fileName = `工时统计_${currentUser}_${start.replace(/-/g, '')}-${end.replace(/-/g, '')}.xlsx`;
+    // 导出
+    exportToExcel(exportData, '工时统计数据', fileName);
+  }
+</script>
+</body>
+</html>
