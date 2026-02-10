@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>律师工时记录 - 多人协作版</title>
+  <!-- 引入Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入Font Awesome图标 -->
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <!-- 自定义Tailwind配置 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#165DFF',
+            secondary: '#6B7280',
+            light: '#F3F4F6',
+            dark: '#1F2937'
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .card-shadow {
+        box-shadow: 0 2px 10px rgba(22, 93, 255, 0.08);
+      }
+      .btn-hover {
+        @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5;
+      }
+      .form-card {
+        @apply bg-white rounded-2xl card-shadow p-6 md:p-8 w-full max-w-md;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans text-dark">
+  <!-- 登录/注册界面 -->
+  <div id="authPage" class="min-h-screen flex flex-col items-center justify-center px-4 py-8">
+    <div class="mb-8 text-center">
+      <i class="fa fa-clock-o text-primary text-3xl mb-2"></i>
+      <h1 class="text-[clamp(1.8rem,4vw,2.5rem)] font-bold text-primary">律师工时记录</h1>
+      <p class="text-secondary mt-2">多人协作版 | 数据独立隔离</p>
+    </div>
+
+    <div class="form-card mb-6">
+      <!-- 登录/注册标签切换 -->
+      <div class="flex border-b border-gray-200 mb-6">
+        <button id="loginTab" class="flex-1 py-2 font-medium text-primary border-b-2 border-primary">
+          <i class="fa fa-sign-in mr-1"></i> 登录
+        </button>
+        <button id="registerTab" class="flex-1 py-2 font-medium text-secondary hover:text-primary">
+          <i class="fa fa-user-plus mr-1"></i> 注册
+        </button>
+      </div>
+
+      <!-- 登录表单 -->
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label for="loginUsername" class="block text-sm font-medium text-secondary mb-1">用户名 <span class="text-red-500">*</span></label>
+          <input 
+            type="text" 
+            id="loginUsername" 
+            required
+            placeholder="请输入你的用户名"
+            class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+          >
+        </div>
+        <div>
+          <label for="loginPwd" class="block text-sm font-medium text-secondary mb-1">密码 <span class="text-red-500">*</span></label>
+          <input 
+            type="password" 
+            id="loginPwd" 
+            required
+            placeholder="请输入你的密码"
+            class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+          >
+        </div>
+        <button 
+          type="submit" 
+          class="w-full bg-primary text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 btn-hover"
+        >
+          <i class="fa fa-sign-in"></i> 立即登录
+        </button>
+      </form>
+
+      <!-- 注册表单 (默认隐藏) -->
+      <form id="registerForm" class="space-y-4 hidden">
+        <div>
+          <label for="regUsername" class="block text-sm font-medium text-secondary mb-1">用户名 <span class="text-red-500">*</span></label>
+          <input 
+            type="text" 
+            id="regUsername" 
+            required
+            placeholder="请设置用户名（如：张律师、律所名称）"
+            class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+          >
+          <p class="text-xs text-secondary mt-1">用户名唯一，不可修改，建议使用易识别名称</p>
+        </div>
+        <div>
+          <label for="regPwd" class="block text-sm font-medium text-secondary mb-1">密码 <span class="text-red-500">*</span></label>
+          <input 
+            type="password" 
+            id="regPwd" 
+            required
+            minlength="6"
+            placeholder="请设置密码（至少6位）"
+            class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+          >
+        </div>
+        <div>
+          <label for="regPwdConfirm" class="block text-sm font-medium text-secondary mb-1">确认密码 <span class="text-red-500">*</span></label>
+          <input 
+            type="password" 
+            id="regPwdConfirm" 
+            required
+            placeholder="请再次输入密码"
+            class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+          >
+        </div>
+        <button 
+          type="submit" 
+          class="w-full bg-primary text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 btn-hover"
+        >
+          <i class="fa fa-user-plus"></i> 立即注册
+        </button>
+      </form>
+    </div>
+
+    <p class="text-xs text-secondary text-center">
+      © 2026 律师工时记录 | 本地存储 · 数据安全 · 多人协作
+    </p>
+  </div>
+
+  <!-- 工时记录主界面 (默认隐藏) -->
+  <div id="mainApp" class="hidden">
+    <!-- 顶部导航栏 -->
+    <header class="bg-white shadow-sm sticky top-0 z-10">
+      <div class="container mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center">
+        <div class="flex items-center gap-2 mb-3 md:mb-0">
+          <i class="fa fa-clock-o text-primary text-2xl"></i>
+          <h1 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-primary">律师工时记录</h1>
+        </div>
+        <!-- 用户信息 + 总工时 -->
+        <div class="flex items-center gap-4">
+          <div class="bg-primary/10 px-4 py-2 rounded-lg flex items-center gap-2">
+            <i class="fa fa-calculator text-primary"></i>
+            <span class="text-sm md:text-base">总工时：<span id="totalHours" class="font-bold text-primary">0小时0分钟</span></span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="currentUser" class="text-sm font-medium hidden md:inline-block">用户名</span>
+            <button id="logoutBtn" class="bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-lg text-sm flex items-center gap-1 transition-all">
+              <i class="fa fa-sign-out text-secondary"></i>
+              <span class="hidden sm:inline">退出</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-6">
+      <!-- 工时录入表单 -->
+      <section class="bg-white rounded-xl p-5 card-shadow mb-6">
+        <h2 class="text-lg md:text-xl font-semibold mb-4 flex items-center gap-2">
+          <i class="fa fa-plus-circle text-primary"></i>新增工时记录
+        </h2>
+        <form id="timeRecordForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="md:col-span-2">
+            <label for="caseName" class="block text-sm font-medium text-secondary mb-1">案件名称 <span class="text-red-500">*</span></label>
+            <input 
+              type="text" 
+              id="caseName" 
+              name="caseName" 
+              required
+              placeholder="请输入案件名称（如：XX公司与XX买卖合同纠纷）"
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+            >
+          </div>
+          <div class="md:col-span-2">
+            <label for="workContent" class="block text-sm font-medium text-secondary mb-1">工作内容 <span class="text-red-500">*</span></label>
+            <textarea 
+              id="workContent" 
+              name="workContent" 
+              required
+              rows="2"
+              placeholder="请输入具体工作内容（如：起草起诉状、与当事人沟通案件细节）"
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all resize-none"
+            ></textarea>
+          </div>
+          <div>
+            <label for="startTime" class="block text-sm font-medium text-secondary mb-1">开始时间 <span class="text-red-500">*</span></label>
+            <input 
+              type="datetime-local" 
+              id="startTime" 
+              name="startTime" 
+              required
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+            >
+          </div>
+          <div>
+            <label for="endTime" class="block text-sm font-medium text-secondary mb-1">结束时间 <span class="text-red-500">*</span></label>
+            <input 
+              type="datetime-local" 
+              id="endTime" 
+              name="endTime" 
+              required
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+            >
+          </div>
+          <div class="md:col-span-2 flex gap-3">
+            <button 
+              type="submit" 
+              class="flex-1 bg-primary text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 btn-hover"
+            >
+              <i class="fa fa-save"></i> 保存记录
+            </button>
+            <button 
+              type="reset" 
+              class="px-4 py-2 border border-gray-200 rounded-lg flex items-center justify-center gap-2 btn-hover"
+            >
+              <i class="fa fa-refresh"></i> 重置
+            </button>
+            <button 
+              type="button" 
+              id="clearAllBtn" 
+              class="px-4 py-2 border border-red-200 bg-red-50 text-red-600 rounded-lg flex items-center justify-center gap-2 btn-hover"
+            >
+              <i class="fa fa-trash"></i> 清空所有
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- 工时统计总结模块 -->
+      <section class="bg-white rounded-xl p-5 card-shadow mb-6">
+        <h2 class="text-lg md:text-xl font-semibold mb-4 flex items-center gap-2">
+          <i class="fa fa-bar-chart text-primary"></i>工时统计总结
+        </h2>
+        <!-- 时间筛选区域 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+          <div>
+            <label for="filterStartDate" class="block text-sm font-medium text-secondary mb-1">筛选起始日期</label>
+            <input type="date" id="filterStartDate" class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
+          </div>
+          <div>
+            <label for="filterEndDate" class="block text-sm font-medium text-secondary mb-1">筛选结束日期</label>
+            <input type="date" id="filterEndDate" class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
+          </div>
+          <div class="flex items-end">
+            <button type="button" id="filterDateBtn" class="w-full bg-primary text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 btn-hover">
+              <i class="fa fa-search"></i> 筛选统计
+            </button>
+          </div>
+        </div>
+        <!-- 统计结果展示 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- 全部案件工时统计 -->
+          <div class="border border-gray-100 rounded-lg p-4">
+            <h3 class="font-medium text-primary mb-3">全部案件工时汇总</h3>
+            <div id="caseTotalStats" class="space-y-2 max-h-64 overflow-y-auto">
+              <p class="text-secondary text-sm">暂无数据，添加记录后自动统计</p>
+            </div>
+          </div>
+          <!-- 筛选时段统计 -->
+          <div class="border border-gray-100 rounded-lg p-4">
+            <h3 class="font-medium text-primary mb-3">指定时段工时统计</h3>
+            <div class="mb-3">
+              <p class="text-sm">时段总工时：<span id="filterTotalHours" class="font-bold text-primary">0小时0分钟</span></p>
+            </div>
+            <div id="filterCaseStats" class="space-y-2 max-h-52 overflow-y-auto">
+              <p class="text-secondary text-sm">请选择日期并点击筛选</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 工时记录列表 -->
+      <section class="bg-white rounded-xl p-5 card-shadow">
+        <h2 class="text-lg md:text-xl font-semibold mb-4 flex items-center justify-between">
+          <span class="flex items-center gap-2"><i class="fa fa-list-alt text-primary"></i>工时记录列表</span>
+          <span id="recordCount" class="text-sm text-secondary">共 0 条记录</span>
+        </h2>
+        <div id="emptyTip" class="py-12 flex flex-col items-center justify-center text-secondary">
+          <i class="fa fa-file-text-o text-4xl mb-3"></i>
+          <p>暂无工时记录，快来添加第一条记录吧～</p>
+        </div>
+        <div id="recordList" class="space-y-3 hidden">
+          <!-- 记录项由JS动态生成 -->
+        </div>
+      </section>
+    </main>
+
+    <footer class="mt-10 py-4 bg-white shadow-inner text-center text-secondary text-sm">
+      <p>© 2026 律师工时记录 | 多人协作版 | 数据本地独立存储</p>
+    </footer>
+  </div>
+
+  <script>
+    // 全局核心变量
+    let editId = null;          // 编辑状态记录ID
+    let currentUser = null;     // 当前登录用户
+    const STORAGE_KEY_USERS = 'lawyerTimeRecordUsers'; // 所有用户存储Key
+    const STORAGE_KEY_LOGIN = 'lawyerTimeRecordLogin'; // 登录态存储Key
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+      // 初始化登录/注册相关事件
+      initAuthEvents();
+      // 检查登录态，自动登录
+      checkLoginStatus();
+      // 初始化主应用事件（登录后触发）
+      initAppEvents();
+    });
+
+    // ====================== 登录/注册核心功能 ======================
+    /**
+     * 初始化登录/注册标签、表单事件
+     */
+    function initAuthEvents() {
+      // 登录/注册标签切换
+      document.getElementById('loginTab').addEventListener('click', () => {
+        switchAuthTab('login');
+      });
+      document.getElementById('registerTab').addEventListener('click', () => {
+        switchAuthTab('register');
+      });
+
+      // 登录表单提交
+      document.getElementById('loginForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const username = document.getElementById('loginUsername').value.trim();
+        const pwd = document.getElementById('loginPwd').value.trim();
+        handleLogin(username, pwd);
+      });
+
+      // 注册表单提交
+      document.getElementById('registerForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const username = document.getElementById('regUsername').value.trim();
+        const pwd = document.getElementById('regPwd').value.trim();
+        const pwdConfirm = document.getElementById('regPwdConfirm').value.trim();
+        handleRegister(username, pwd, pwdConfirm);
+      });
+    }
+
+    /**
+     * 切换登录/注册标签
+     * @param {string} type - login/register
+     */
+    function switchAuthTab(type) {
+      const loginTab = document.getElementById('loginTab');
+      const registerTab = document.getElementById('registerTab');
+      const loginForm = document.getElementById('loginForm');
+      const registerForm = document.getElementById('registerForm');
+
+      if (type === 'login') {
+        loginTab.classList.add('text-primary', 'border-b-2', 'border-primary');
+        loginTab.classList.remove('text-secondary');
+        registerTab.classList.remove('text-primary', 'border-b-2', 'border-primary');
+        registerTab.classList.add('text-secondary');
+        loginForm.classList.remove('hidden');
+        registerForm.classList.add('hidden');
+      } else {
+        registerTab.classList.add('text-primary', 'border-b-2', 'border-primary');
+        registerTab.classList.remove('text-secondary');
+        loginTab.classList.remove('text-primary', 'border-b-2', 'border-primary');
+        loginTab.classList.add('text-secondary');
+        registerForm.classList.remove('hidden');
+        loginForm.classList.add('hidden');
+      }
+    }
+
+    /**
+     * 处理用户注册
+     * @param {string} username - 用户名
+     * @param {string} pwd - 密码
+     * @param {string} pwdConfirm - 确认密码
+     */
+    function handleRegister(username, pwd, pwdConfirm) {
+      // 基础校验
+      if (!username) {
+        alert('请输入用户名！');
+        return;
+      }
+      if (pwd.length < 6) {
+        alert('密码长度不能少于6位！');
+        return;
+      }
+      if (pwd !== pwdConfirm) {
+        alert('两次输入的密码不一致！');
+        return;
+      }
+
+      // 获取已有用户
+      let users = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS)) || [];
+      // 检查用户名是否已存在
+      const userExists = users.some(user => user.username === username);
+      if (userExists) {
+        alert('该用户名已存在，请更换！');
+        return;
+      }
+
+      // 新增用户（密码简单加密，本地存储基础防护）
+      users.push({
+        username,
+        pwd: simpleEncrypt(pwd), // 密码加密存储
+        createTime: new Date().toISOString()
+      });
+      localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(users));
+
+      alert('注册成功！请登录');
+      switchAuthTab('login');
+      document.getElementById('loginUsername').value = username;
+      document.getElementById('loginPwd').value = '';
+    }
+
+    /**
+     * 处理用户登录
+     * @param {string} username - 用户名
+     * @param {string} pwd - 密码
+     */
+    function handleLogin(username, pwd) {
+      // 基础校验
+      if (!username || !pwd) {
+        alert('请输入用户名和密码！');
+        return;
+      }
+
+      // 获取已有用户
+      let users = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS)) || [];
+      // 查找用户并验证密码
+      const user = users.find(item => item.username === username && simpleDecrypt(item.pwd) === pwd);
+      if (!user) {
+        alert('用户名或密码错误！');
+        return;
+      }
+
+      // 保存登录态
+      currentUser = username;
+      localStorage.setItem(STORAGE_KEY_LOGIN, JSON.stringify({
+        username,
+        loginTime: new Date().toISOString()
+      }));
+
+      // 进入主应用
+      enterMainApp();
+    }
+
+    /**
+     * 检查登录态，自动登录
+     */
+    function checkLoginStatus() {
+      const loginInfo = JSON.parse(localStorage.getItem(STORAGE_KEY_LOGIN));
+      if (loginInfo && loginInfo.username) {
+        currentUser = loginInfo.username;
+        enterMainApp();
+      }
+    }
+
+    /**
+     * 退出登录
+     */
+    function handleLogout() {
+      if (confirm('确定要退出登录吗？')) {
+        // 清除登录态
+        localStorage.removeItem(STORAGE_KEY_LOGIN);
+        currentUser = null;
+        editId = null;
+        // 返回登录界面
+        document.getElementById('authPage').classList.remove('hidden');
+        document.getElementById('mainApp').classList.add('hidden');
+        // 清空登录表单
+        document.getElementById('loginForm').reset();
+        document.getElementById('registerForm').reset();
+        switchAuthTab('login');
+      }
+    }
+
+    /**
+     * 进入主应用界面
+     */
+    function enterMainApp() {
+      // 更新当前用户名显示
+      document.getElementById('currentUser').textContent = currentUser;
+      // 切换界面
+      document.getElementById('authPage').classList.add('hidden');
+      document.getElementById('mainApp').classList.remove('hidden');
+      // 初始化主应用
+      initDefaultTime();
+      renderRecordList();
+      renderCaseTotalStats();
+    }
+
+    /**
+     * 简单加密密码（本地存储基础防护，非专业加密）
+     * @param {string} str - 原始密码
+     * @returns {string} 加密后字符串
+     */
+    function simpleEncrypt(str) {
+      return btoa(unescape(encodeURIComponent(str))); // Base64加密
+    }
+
+    /**
+     * 简单解密密码
+     * @param {string} str - 加密字符串
+     * @returns {string} 原始密码
+     */
+    function simpleDecrypt(str) {
+      return decodeURIComponent(escape(atob(str))); // Base64解密
+    }
+
+    // ====================== 主应用核心功能（适配多用户） ======================
+    /**
+     * 初始化主应用所有事件
+     */
+    function initAppEvents() {
+      // 退出登录事件
+      document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+      // 工时表单提交
+      document.getElementById('timeRecordForm').addEventListener('submit', handleFormSubmit);
+      // 清空所有记录
+      document.getElementById('clearAllBtn').addEventListener('click', handleClearAll);
+      // 日期筛选统计
+      document.getElementById('filterDateBtn').addEventListener('click', handleDateFilterStats);
+    }
+
+    /**
+     * 获取当前用户的专属存储Key（实现数据隔离）
+     * @returns {string} 当前用户的记录存储Key
+     */
+    function getUserRecordKey() {
+      return `lawyerTimeRecords_${currentUser}`;
+    }
+
+    // 初始化表单默认时间
+    function initDefaultTime() {
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      const formatTime = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hour = String(date.getHours()).padStart(2, '0');
+        const minute = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hour}:${minute}`;
+      };
+      document.getElementById('startTime').value = formatTime(oneHourAgo);
+      document.getElementById('endTime').value = formatTime(now);
+    }
+
+    // 处理表单提交（新增/编辑）
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      const caseName = document.getElementById('caseName').value.trim();
+      const workContent = document.getElementById('workContent').value.trim();
+      const startTime = document.getElementById('startTime').value;
+      const endTime = document.getElementById('endTime').value;
+
+      if (new Date(startTime) >= new Date(endTime)) {
+        alert('结束时间必须晚于开始时间，请重新选择！');
+        return;
+      }
+
+      const record = {
+        caseName,
+        workContent,
+        startTime,
+        endTime,
+        duration: calculateDuration(startTime, endTime),
+        totalMinutes: calcTotalMinutes(startTime, endTime),
+        createTime: new Date().toISOString()
+      };
+
+      // 🔥 关键：获取当前用户的专属记录
+      let records = JSON.parse(localStorage.getItem(getUserRecordKey())) || [];
+
+      if (editId) {
+        records = records.map(item => item.id === editId ? { ...item, ...record } : item);
+        editId = null;
+        alert('记录编辑成功！');
+      } else {
+        records.unshift({ id: generateUniqueId(), ...record });
+        alert('记录添加成功！');
+      }
+
+      // 🔥 关键：保存到当前用户的专属存储
+      localStorage.setItem(getUserRecordKey(), JSON.stringify(records));
+      this.reset();
+      initDefaultTime();
+      renderRecordList();
+      renderCaseTotalStats();
+    }
+
+    // 生成唯一ID
+    function generateUniqueId() {
+      return Date.now() + '-' + Math.floor(Math.random() * 10000);
+    }
+
+    // 计算工时（展示用：X小时X分钟）
+    function calculateDuration(start, end) {
+      const startMs = new Date(start).getTime();
+      const endMs = new Date(end).getTime();
+      const diffMs = endMs - startMs;
+      const hours = Math.floor(diffMs / (60 * 60 * 1000));
+      const minutes = Math.floor((diffMs % (60 * 60 * 1000)) / (60 * 1000));
+      return `${hours}小时${minutes}分钟`;
+    }
+
+    // 计算总分钟数（统计专用，避免字符串拆分误差）
+    function calcTotalMinutes(start, end) {
+      const startMs = new Date(start).getTime();
+      const endMs = new Date(end).getTime();
+      const diffMs = endMs - startMs;
+      return Math.floor(diffMs / (60 * 1000));
+    }
+
+    // 分钟数转为标准工时格式
+    function minutesToHours(minutes) {
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      return `${h}小时${m}分钟`;
+    }
+
+    // 格式化时间显示
+    function formatDisplayTime(timeStr) {
+      const date = new Date(timeStr);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hour = String(date.getHours()).padStart(2, '0');
+      const minute = String(date.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day} ${hour}:${minute}`;
+    }
+
+    // 渲染记录列表+全局总工时（适配多用户）
+    function renderRecordList() {
+      // 🔥 关键：获取当前用户的专属记录
+      const records = JSON.parse(localStorage.getItem(getUserRecordKey())) || [];
+      const recordListEl = document.getElementById('recordList');
+      const emptyTipEl = document.getElementById('emptyTip');
+      const recordCountEl = document.getElementById('recordCount');
+      const totalHoursEl = document.getElementById('totalHours');
+
+      recordCountEl.textContent = `共 ${records.length} 条记录`;
+
+      if (records.length === 0) {
+        recordListEl.classList.add('hidden');
+        emptyTipEl.classList.remove('hidden');
+        totalHoursEl.textContent = '0小时0分钟';
+        return;
+      }
+
+      recordListEl.classList.remove('hidden');
+      emptyTipEl.classList.add('hidden');
+      recordListEl.innerHTML = '';
+
+      // 计算全局总工时
+      const totalMinutes = records.reduce((sum, item) => sum + (item.totalMinutes || 0), 0);
+      totalHoursEl.textContent = minutesToHours(totalMinutes);
+
+      records.forEach(record => {
+        const recordItem = document.createElement('div');
+        recordItem.className = 'border border-gray-100 rounded-lg p-4 hover:border-primary/30 transition-all';
+        recordItem.innerHTML = `
+          <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-2 mb-3">
+            <h3 class="font-semibold text-lg flex items-center gap-2">
+              <span class="text-primary">${record.caseName}</span>
+              <span class="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full">${record.duration}</span>
+            </h3>
+            <div class="flex gap-2">
+              <button class="copy-btn text-secondary hover:text-primary transition-all" data-id="${record.id}" title="复制案件名称">
+                <i class="fa fa-copy"></i>
+              </button>
+              <button class="edit-btn text-secondary hover:text-primary transition-all" data-id="${record.id}" title="编辑记录">
+                <i class="fa fa-pencil"></i>
+              </button>
+              <button class="delete-btn text-secondary hover:text-red-500 transition-all" data-id="${record.id}" title="删除记录">
+                <i class="fa fa-trash"></i>
+              </button>
+            </div>
+          </div>
+          <p class="text-sm text-secondary mb-2"><i class="fa fa-file-text-o mr-1"></i>${record.workContent}</p>
+          <div class="flex flex-wrap gap-4 text-xs text-secondary">
+            <span><i class="fa fa-clock-o mr-1"></i>开始：${formatDisplayTime(record.startTime)}</span>
+            <span><i class="fa fa-stop mr-1"></i>结束：${formatDisplayTime(record.endTime)}</span>
+          </div>
+        `;
+        recordListEl.appendChild(recordItem);
+
+        // 绑定操作事件
+        recordItem.querySelector('.copy-btn').addEventListener('click', () => {
+          navigator.clipboard.writeText(record.caseName).then(() => alert('案件名称已复制！'));
+        });
+        recordItem.querySelector('.edit-btn').addEventListener('click', () => editRecord(record.id));
+        recordItem.querySelector('.delete-btn').addEventListener('click', () => deleteRecord(record.id));
+      });
+    }
+
+    // 编辑记录
+    function editRecord(id) {
+      // 🔥 关键：获取当前用户的专属记录
+      const records = JSON.parse(localStorage.getItem(getUserRecordKey())) || [];
+      const record = records.find(item => item.id === id);
+      if (!record) return;
+      document.getElementById('caseName').value = record.caseName;
+      document.getElementById('workContent').value = record.workContent;
+      document.getElementById('startTime').value = record.startTime;
+      document.getElementById('endTime').value = record.endTime;
+      editId = id;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // 删除单条记录
+    function deleteRecord(id) {
+      if (!confirm('确定删除这条记录？删除后无法恢复！')) return;
+      // 🔥 关键：获取当前用户的专属记录
+      let records = JSON.parse(localStorage.getItem(getUserRecordKey())) || [];
+      records = records.filter(item => item.id !== id);
+      localStorage.setItem(getUserRecordKey(), JSON.stringify(records));
+      renderRecordList();
+      renderCaseTotalStats();
+      alert('记录已删除');
+    }
+
+    // 清空所有记录（适配多用户）
+    function handleClearAll() {
+      // 🔥 关键：获取当前用户的专属记录
+      const records = JSON.parse(localStorage.getItem(getUserRecordKey())) || [];
+      if (records.length === 0) {
+        alert('暂无记录可清空！');
+        return;
+      }
+      if (confirm('警告：清空后所有数据永久丢失，确定继续？')) {
+        localStorage.removeItem(getUserRecordKey());
+        renderRecordList();
+        renderCaseTotalStats();
+        handleDateFilterStats();
+        alert('所有记录已清空');
+      }
+    }
+
+    // 渲染全部案件的总工时统计（适配多用户）
+    function renderCaseTotalStats() {
+      // 🔥 关键：获取当前用户的专属记录
+      const records = JSON.parse(localStorage.getItem(getUserRecordKey())) || [];
+      const statsEl = document.getElementById('caseTotalStats');
+      
+      if (records.length === 0) {
+        statsEl.innerHTML = '<p class="text-secondary text-sm">暂无数据，添加记录后自动统计</p>';
+        return;
+      }
+
+      // 按案件名称聚合总分钟数
+      const caseMap = {};
+      records.forEach(item => {
+        if (!caseMap[item.caseName]) caseMap[item.caseName] = 0;
+        caseMap[item.caseName] += item.totalMinutes;
+      });
+
+      // 转为数组并按工时降序排序
+      const caseStats = Object.entries(caseMap).sort((a, b) => b[1] - a[1]);
+      
+      let html = '';
+      caseStats.forEach(([name, minutes]) => {
+        html += `
+          <div class="flex justify-between items-center text-sm">
+            <span class="truncate mr-2" title="${name}">${name}</span>
+            <span class="font-medium">${minutesToHours(minutes)}</span>
+          </div>
+        `;
+      });
+      statsEl.innerHTML = html;
+    }
+
+    // 按时间范围筛选并统计工时（适配多用户）
+    function handleDateFilterStats() {
+      const startDate = document.getElementById('filterStartDate').value;
+      const endDate = document.getElementById('filterEndDate').value;
+      // 🔥 关键：获取当前用户的专属记录
+      const records = JSON.parse(localStorage.getItem(getUserRecordKey())) || [];
+      const filterTotalEl = document.getElementById('filterTotalHours');
+      const filterCaseEl = document.getElementById('filterCaseStats');
+
+      if (!startDate || !endDate) {
+        filterTotalEl.textContent = '0小时0分钟';
+        filterCaseEl.innerHTML = '<p class="text-secondary text-sm">请先选择起始和结束日期</p>';
+        return;
+      }
+
+      // 筛选日期范围内的记录
+      const filteredRecords = records.filter(item => {
+        const recordDate = item.startTime.split('T')[0];
+        return recordDate >= startDate && recordDate <= endDate;
+      });
+
+      // 计算筛选后总工时
+      const filterTotalMinutes = filteredRecords.reduce((sum, item) => sum + item.totalMinutes, 0);
+      filterTotalEl.textContent = minutesToHours(filterTotalMinutes);
+
+      // 按案件聚合筛选后数据
+      if (filteredRecords.length === 0) {
+        filterCaseEl.innerHTML = '<p class="text-secondary text-sm">该时段无工时记录</p>';
+        return;
+      }
+
+      const caseMap = {};
+      filteredRecords.forEach(item => {
+        if (!caseMap[item.caseName]) caseMap[item.caseName] = 0;
+        caseMap[item.caseName] += item.totalMinutes;
+      });
+
+      const caseStats = Object.entries(caseMap).sort((a, b) => b[1] - a[1]);
+      let html = '';
+      caseStats.forEach(([name, minutes]) => {
+        html += `
+          <div class="flex justify-between items-center text-sm">
+            <span class="truncate mr-2" title="${name}">${name}</span>
+            <span class="font-medium">${minutesToHours(minutes)}</span>
+          </div>
+        `;
+      });
+      filterCaseEl.innerHTML = html;
+    }
+  </script>
+</body>
+</html>
